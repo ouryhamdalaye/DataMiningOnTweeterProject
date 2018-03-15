@@ -1,26 +1,92 @@
+import pandas as pd
 import tweepy
-import redis
+from constants.Constants import *
+from config.Authentication import Authentication
+import time
+import sys
 
-# The user credential variables to access Twitter API
-access_token = "243510610-uW7TEaqISBwB86VCfQh0gczU6WaTwIX4xr2CHvt3"
-access_token_secret = "lGmSgFPFzAPFLQ2THFqEG7OUg8akd5WusbijZuh9UlqHl"
-consumer_key = "QtM1L0ppK6KPC2OXaAqRHwsrP"
-consumer_secret = "1AYVWMuePpHWRGgR2AIiuM9fGp0bAVoGF4mmPUiqXoIpnDRHwh"
+sn = []
+text = []
+timestamp =[]
+# authenticate to tweeter
+api = Authentication.auth(consumer_key=CONSUMER_KEY, consumer_secret=CONSUMER_SECRET, access_token=ACCESS_TOKEN,
+                access_token_secret=ACCESS_TOKEN_SECRET)
 
-# Authentication
+search = tweepy.Cursor(api.search, q='espion').items(((1000)))
 
-auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-auth.set_access_token(access_token, access_token_secret)
-api = tweepy.API(auth)
+for tweet in search:
+    #print tweet.user.screen_name, tweet.created_at, tweet.text
+    timestamp.append(tweet.created_at)
+    sn.append(tweet.user.screen_name)
+    text.append(tweet.text)
 
-query = 'savoie'
-max_tweets = 10
+# Convert lists to dataframe
+df = pd.DataFrame()
+df['timestamp'] = timestamp
+df['sn'] = sn
+df['text'] = text
 
-public_tweets = [status for status in tweepy.Cursor(api.search, q=query).items(max_tweets)]
+# Prepare ford date filtering. Adding an EST time column since chat hosted by people in that time zone.
+df['timestamp'] = pd.to_datetime(df['timestamp'])
+df['EST'] = df['timestamp'] - pd.Timedelta(hours=0) #Convert to EST
+df['EST'] = pd.to_datetime(df['EST'])
 
-# Results
-for tweet in public_tweets:
-    print(tweet.text)
+# Subset for the dates required. Can select a specific date or time to examine.
+df = df[(pd.to_datetime("2018-03-15 08:00:00", format='%Y-%m-%d %H:%M:%S') < df['EST'])
+        &
+        (df['EST'] < pd.to_datetime("2018-03-15 10:00:00", format='%Y-%m-%d %H:%M:%S'))]
 
-r = redis.StrictRedis(host='localhost', port=6379, db=0)
-r.set('tweet', public_tweets)
+# save df
+# Write out Tweets in case they are needed later.
+df.to_csv('espion.csv',index = False,encoding='utf-8')
+
+# Create a list of the unique usernames in order to see which users we need to retrieve friends for.
+allNames = list(df['sn'].unique())
+
+print(df)
+
+# Initialize dataframe of users that will hold the edge relationships
+dfUsers = pd.DataFrame()
+dfUsers['userFromName'] =[]
+dfUsers['userFromId'] =[]
+dfUsers['userToId'] = []
+count = 0
+
+nameCount = len(allNames)
+# time.sleep(70) # avoids hitting Twitter rate limit
+
+# The choice to retrieve friends (who the user is following) rather than followers is intentional.
+# Either would work. However, many Twitter users follow fewer users than are following them, especially the most popular accounts.
+# This reduces the number of very large calls to Twitter API, which seemed to cause problems.
+for name in allNames:
+    # Build list of friends
+    currentFriends = []
+    for page in tweepy.Cursor(api.friends_ids, screen_name=name).pages():
+        currentFriends.extend(page)
+    currentId = api.get_user(screen_name=name).id
+    currentId = [currentId] * len(currentFriends)
+    currentName = [name] * len(currentFriends)
+    dfTemp = pd.DataFrame()
+    dfTemp['userFromName'] = currentName
+    dfTemp['userFromId'] = currentId
+    dfTemp['userToId'] = currentFriends
+    dfUsers = pd.concat([dfUsers,dfTemp])
+    time.sleep(7) # avoids hitting Twitter rate limit
+    # Progress bar to track approximate progress
+    count +=1
+    per = round(count*100.0/nameCount,1)
+    sys.stdout.write("\rTwitter call %s%% complete." % per)
+    sys.stdout.flush()
+
+# Again, to limit the number of calls to Twitter API, just do lookups on followers that connect to those in our user group.
+# We are not interested in "friends" that are not part of this community.
+fromId = dfUsers['userFromId'].unique()
+dfChat = dfUsers[dfUsers['userToId'].apply(lambda x: x in fromId)]
+
+# No more Twitter API lookups are necessary. Create a lookup table that we will use to get the verify the userToName
+dfLookup = dfChat[['userFromName','userFromId']]
+dfLookup = dfLookup.drop_duplicates()
+dfLookup.columns = ['userToName','userToId']
+dfCommunity = dfUsers.merge(dfLookup, on='userToId')
+
+dfCommunity.to_csv('dfCommunity.csv',index = False,encoding='utf-8')
