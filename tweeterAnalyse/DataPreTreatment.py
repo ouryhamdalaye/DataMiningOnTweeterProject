@@ -1,67 +1,65 @@
 from tweeterAnalyse import *
-from nltk.corpus import stopwords, state_union
-from nltk.stem import PorterStemmer
-from nltk.tokenize import word_tokenize, PunktSentenceTokenizer
+from tweeterAnalyse.TextProcessing import TextProcessing
 
 
 class DataPreTreatment(object):
 
-    """ install all necessary packages for nltk """
-    @staticmethod
-    def init():
-        # install punkt
-        nltk.download('punkt')
-        # install stopwords
-        nltk.download('stopwords')
-        # install averaged_perceptron_tagger
-        nltk.download('averaged_perceptron_tagger')
+    hashtag_dict = {}
+    urls_dict = {}
+    voc_df = pd.DataFrame()
+    tweet_texts = {}
 
-    """ tokenize tweets text by words """
     @staticmethod
-    def tokenize_tweet_by_words(tweet_text):
-        words = word_tokenize(tweet_text)
-        return words
-
-    """ tokenize tweets text by sentences """
-    @staticmethod
-    def tokenize_tweet_by_sentences(tweet_text):
-        custom_sent_tokenizer = PunktSentenceTokenizer()
-        return custom_sent_tokenizer.tokenize(tweet_text)
-
-    """ remove stop words """
-    @staticmethod
-    def remove_stop_words(tweet_word_tokenized):
-        stop_words = set(stopwords.words(LANG))
-        return [w for w in tweet_word_tokenized if not w in stop_words]
-
-    """ stem words """
-    @staticmethod
-    def stem_words(tweet_without_stop_words):
-        ps = PorterStemmer()
-        filtered_words = []
-        for w in tweet_without_stop_words:
-            filtered_words.append(ps.stem(w))
-        return filtered_words
-
-    """ Part of speech tagging :  labeling words in a sentence as nouns, adjectives, verbs...etc' """
-    @staticmethod
-    def speech_tag(tweet_stemmed):
-        tagged = []
+    def build_hashtags_dict(tweet_json):
         try:
-            tagged = nltk.pos_tag(tweet_stemmed)
+            for hashtag in tweet_json['entities']['hashtags']:
+                try:
+                    DataPreTreatment.hashtag_dict[hashtag['text']].append(tweet_json['user']['id_str'])
+                except KeyError:
+                    DataPreTreatment.hashtag_dict[hashtag['text']] = [tweet_json['user']['id_str']]
+            print(DataPreTreatment.hashtag_dict)
         except Exception as e:
-            print(str(e))
-        return tagged
+            print("")
 
-    """ chunk words """
     @staticmethod
-    def chunk(speech_tag):
-        chunk_gram = r"""Chunk: {<RB.?>*<VB.?>*<NNP>+<NN>?}"""
-        chunk_parser = nltk.RegexpParser(chunk_gram)
-        chunked = chunk_parser.parse(speech_tag)
+    def build_urls_dict(tweet_json):
+        try:
+            for url in tweet_json['entities']['urls']:
+                try:
+                    DataPreTreatment.urls_dict[url['url']].append(tweet_json['user']['id_str'])
+                except KeyError:
+                    DataPreTreatment.urls_dict[url['url']] = [tweet_json['user']['id_str']]
+            print(DataPreTreatment.urls_dict)
+        except Exception as e:
+            print("")
 
-        print(chunked)
-        for subtree in chunked.subtrees(filter=lambda t: t.label() == 'Chunk'):
-            print(subtree)
+    @staticmethod
+    def build_voc_dict(tweet_json):
+        try:
+            # get tweet text
+            try:
+                tweet_text = tweet_json['retweeted_status']['full_text']
+            except Exception:
+                tweet_text = tweet_json['full_text']
 
-        chunked.draw()
+            # check if one text was already saved, otherwise you have nothing to compare
+            if(len(DataPreTreatment.tweet_texts) == 0):
+                DataPreTreatment.tweet_texts[tweet_json['user']['id_str']] = [tweet_text]
+            else:
+                try:
+                    DataPreTreatment.tweet_texts[tweet_json['user']['id_str']].append(tweet_text)
+                except KeyError:
+                    DataPreTreatment.tweet_texts[tweet_json['user']['id_str']] = [tweet_text]
+
+                tp = TextProcessing()
+                for user_id, texts in DataPreTreatment.tweet_texts.items():
+                    for text in texts:
+                        similarity = tp.get_similarity_between_two_tweets(tweet_text, text)
+                        if(similarity > 0.6):
+                            DataPreTreatment.voc_df['userFromId'] = pd.Series([tweet_json['user']['id_str']])
+                            DataPreTreatment.voc_df['userToId'] = pd.Series([user_id])
+
+            print(DataPreTreatment.voc_dict)
+        except Exception as e:
+            print("")
+

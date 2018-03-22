@@ -3,7 +3,12 @@ from database.RedisHandler import RedisHandler
 from config.Authentication import Authentication
 from tweeterAnalyse.DataCapture import DataCapture
 from tweeterAnalyse.DataPreTreatment import DataPreTreatment
-import json
+from tweeterAnalyse.DataDirectLinkHelper import DataDirectLinkHelper
+from tweeterAnalyse.DataIndirectLinkHelper import DataIndirectLinkHelper
+
+import json as json
+import pandas as pd
+
 
 # auth = Authentication()
 # tweeter_capture = TweetCapture()
@@ -24,6 +29,7 @@ while ans:
     q.Exit/Quit
     """)
     ans = input("What would you like to do? ")
+    # ans = "2"
     if ans == "1":
         print("\nLook for a subject ")
         # get tweets
@@ -50,8 +56,19 @@ while ans:
             if not tweets:
                 print("\nUnable to load payload. Please Look for a subject again.")
             else:
-                print(tweets)
-                for i in tweets:
+                # print(tweets)
+                df_direct_links = pd.DataFrame()
+                df_indirect_links = pd.DataFrame()
+                direct_links_frames = []
+                indirect_links_frames = []
+                for tweet in tweets:
+                    # DataPreTreatment.build_hashtags_dict(tweet)
+                    # DataPreTreatment.build_urls_dict(tweet)
+                    DataPreTreatment.build_voc_dict(tweet)
+                    # direct_links_frames.append(DataDirectLinkHelper.get_direct_links(tweet))
+                    # indirect_links_frames.append(DataIndirectLinkHelper.get_indirect_links(tweet))
+
+                """
                     tweet_text = ""
                     try:
                         tmp = i['retweeted_status']
@@ -92,7 +109,11 @@ while ans:
                     speech_tag = DataPreTreatment.speech_tag(tweet_stemmed)
                     print(speech_tag)
                     print("\n")
-
+                    """
+                print("direct links : ")
+                df_direct_links = pd.concat(direct_links_frames)
+                df_direct_links = df_direct_links.drop_duplicates()
+                print(df_direct_links)
         except Exception as e:
             print("Error : " + str(e))
             ans = False

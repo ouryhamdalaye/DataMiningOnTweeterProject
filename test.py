@@ -12,7 +12,7 @@ timestamp =[]
 api = Authentication.auth(consumer_key=CONSUMER_KEY, consumer_secret=CONSUMER_SECRET, access_token=ACCESS_TOKEN,
                 access_token_secret=ACCESS_TOKEN_SECRET)
 
-search = tweepy.Cursor(api.search, q='espion').items(((1000)))
+search = tweepy.Cursor(api.search, q='digital').items(((5)))
 
 for tweet in search:
     #print tweet.user.screen_name, tweet.created_at, tweet.text
@@ -26,15 +26,19 @@ df['timestamp'] = timestamp
 df['sn'] = sn
 df['text'] = text
 
+
+print(df)
 # Prepare ford date filtering. Adding an EST time column since chat hosted by people in that time zone.
 df['timestamp'] = pd.to_datetime(df['timestamp'])
 df['EST'] = df['timestamp'] - pd.Timedelta(hours=0) #Convert to EST
 df['EST'] = pd.to_datetime(df['EST'])
 
+
+
 # Subset for the dates required. Can select a specific date or time to examine.
-df = df[(pd.to_datetime("2018-03-15 08:00:00", format='%Y-%m-%d %H:%M:%S') < df['EST'])
+df = df[(pd.to_datetime("2018-03-21 15:00:00", format='%Y-%m-%d %H:%M:%S') < df['EST'])
         &
-        (df['EST'] < pd.to_datetime("2018-03-15 10:00:00", format='%Y-%m-%d %H:%M:%S'))]
+        (df['EST'] < pd.to_datetime("2018-03-21 23:59:59", format='%Y-%m-%d %H:%M:%S'))]
 
 # save df
 # Write out Tweets in case they are needed later.
@@ -68,6 +72,7 @@ for name in allNames:
     currentName = [name] * len(currentFriends)
     dfTemp = pd.DataFrame()
     dfTemp['userFromName'] = currentName
+    # print(dfTemp['userFromName'])
     dfTemp['userFromId'] = currentId
     dfTemp['userToId'] = currentFriends
     dfUsers = pd.concat([dfUsers,dfTemp])

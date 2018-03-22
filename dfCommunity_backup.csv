@@ -1,0 +1,12 @@
+userFromName,userFromId,userToId,userToName
+twitiste1,2162490576.0,343895334.0,24matins
+AlexisNoiron,964838359.0,351723181.0,LucasActus
+24matins,343895334.0,2162490576.0,twitiste1
+LucasActus,351723181.0,964838359.0,AlexisNoiron
+LucasActus2,351723182.0,351723187.0,LucasActus7
+LucasActus3,351723183.0,351723186.0,LucasActus6
+LucasActus3,351723184.0,351723186.0,LucasActus6
+LucasActus5,351723185.0,351723184.0,LucasActus4
+LucasActus6,351723186.0,351723182.0,LucasActus2
+LucasActus7,351723187.0,964838359.0,AlexisNoiron
+
