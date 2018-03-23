@@ -6,6 +6,7 @@ from tweeterAnalyse.DataPreTreatment import DataPreTreatment
 from tweeterAnalyse.DataDirectLinkHelper import DataDirectLinkHelper
 from tweeterAnalyse.DataIndirectLinkHelper import DataIndirectLinkHelper
 from tweeterAnalyse.TextProcessing import TextProcessing
+from tweeterAnalyse.GraphDrawer import GraphDrawer
 
 import json as json
 import pandas as pd
@@ -150,6 +151,19 @@ while ans:
             print("unable to retrieve indirect links. it is empty")
         else:
             print(str(len(df_redis_indirect_links)) + " indirect links")
+
+        graph_drawer = GraphDrawer("digraph")
+        graph_drawer.add_edges(df_redis_all_links)
+        graph_drawer.add_nodes(df_redis_all_links)
+        graph_drawer.draw_graph()
+
+        trace1 = graph_drawer.scatter_nodes()
+        trace2 = graph_drawer.scatter_edges()
+
+        graph_drawer.create_iplot(trace1=trace1, trace2=trace2)
+
+        graph_drawer.display_graph()
+
 
 
 

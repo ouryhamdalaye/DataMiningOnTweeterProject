@@ -106,3 +106,46 @@ def get_similarity_between_two_tweets(tweet1, tweet2):
             print(subtree)
 
         chunked.draw()
+
+"""
+                    tweet_text = ""
+                    try:
+                        tmp = i['retweeted_status']
+                        tweet_text = i['retweeted_status']['full_text']
+                        print("b " + tweet_text)
+                    except Exception:
+                        tweet_text = i['full_text']
+                        print("a " + tweet_text)
+
+                    print("\n\nData Pre-Treatment --\n")
+
+                    print("\n--- Init nltk ---\n")
+                    DataPreTreatment.init()
+
+                    print("\n----------\n")
+
+                    print("\nsentence tokenize")
+                    tweet_sentence_tokenized = DataPreTreatment.tokenize_tweet_by_sentences(tweet_text)
+                    print(tweet_sentence_tokenized)
+                    print("\n")
+
+                    print("\nword tokenize")
+                    tweet_word_tokenized = DataPreTreatment.tokenize_tweet_by_words(tweet_text)
+                    print(tweet_word_tokenized)
+                    print("\n")
+
+                    print("\nremove stopwords")
+                    tweet_without_stop_words = DataPreTreatment.remove_stop_words(tweet_word_tokenized)
+                    print(tweet_without_stop_words)
+                    print("\n")
+
+                    print("\nstem")
+                    tweet_stemmed = DataPreTreatment.stem_words(tweet_without_stop_words)
+                    print(tweet_stemmed)
+                    print("\n")
+
+                    print("\nspeech tag")
+                    speech_tag = DataPreTreatment.speech_tag(tweet_stemmed)
+                    print(speech_tag)
+                    print("\n")
+                    """
