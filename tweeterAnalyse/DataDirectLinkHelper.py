@@ -5,11 +5,20 @@ class DataDirectLinkHelper(object):
 
     @staticmethod
     def get_direct_links(tweet):
+        df_direct_link = pd.DataFrame(columns=['userFromId','userToId'])
         df_direct_link1 = DataDirectLinkHelper.connect_user_by_retweet(tweet)
         df_direct_link2 = DataDirectLinkHelper.connect_user_by_reply(tweet)
         df_direct_link3 = DataDirectLinkHelper.connect_user_by_mention(tweet)
-        frames = [df_direct_link1, df_direct_link2, df_direct_link3]
-        return pd.concat(frames)
+        frames = []
+        if not df_direct_link1.empty:
+            frames.append(df_direct_link1)
+        if not df_direct_link2.empty:
+            frames.append(df_direct_link2)
+        if not df_direct_link3.empty:
+            frames.append(df_direct_link3)
+        if not len(frames) == 0:
+            return pd.concat(frames)
+        return df_direct_link
 
     @staticmethod
     def connect_user_by_retweet(tweet_json):
@@ -19,7 +28,8 @@ class DataDirectLinkHelper(object):
                 df_connect['userFromId'] = pd.Series([tweet_json['user']['id_str']])
                 df_connect['userToId'] = pd.Series([tweet_json['retweeted_status']['user']['id_str']])
         except Exception as e:
-            print("Warning at connect_user_by_retweet : no " + str(e))
+            print("")
+            # print("Warning at connect_user_by_retweet : no " + str(e))
         finally:
             return df_connect
 
@@ -32,7 +42,8 @@ class DataDirectLinkHelper(object):
                 df_connect['userFromId'] = pd.Series([tweet_json['user']['id_str']])
                 df_connect['userToId'] = pd.Series([tweet_json['in_reply_to_user_id_str']])
         except Exception as e:
-            print("Warning at connect_user_by_reply : " + str(e))
+            print("")
+            # print("Warning at connect_user_by_reply : " + str(e))
         finally:
             return df_connect
 
@@ -46,7 +57,8 @@ class DataDirectLinkHelper(object):
                     df_connect['userFromId'] = pd.Series([tweet_json['user']['id_str']])
                     df_connect['userToId'] = pd.Series([user_mention['id_str']])
         except Exception as e:
-            print("Warning at connect_user_by_mention : " + str(e))
+            print("")
+            # print("Warning at connect_user_by_mention : " + str(e))
         finally:
             return df_connect
 

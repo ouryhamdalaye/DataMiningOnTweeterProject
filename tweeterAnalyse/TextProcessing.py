@@ -52,3 +52,32 @@ class TextProcessing(object):
         similarity = pd.Series(res).groupby(level=0).max().mean()
         # print(similarity)
         return similarity
+
+    """
+    build a dict like 'user_id : tweet_text'
+    """
+    @staticmethod
+    def get_tweet_textes_with_users(tweet_texts, tweet_json):
+
+        current_tweet_text = TextProcessing.get_tweet_text(tweet_json)
+
+        # check if one text was already saved, otherwise you have nothing to compare
+        if (len(tweet_texts) == 0):
+            tweet_texts[tweet_json['user']['id_str']] = [current_tweet_text]
+        else:
+            try:
+                tweet_texts[tweet_json['user']['id_str']].append(current_tweet_text)
+            except KeyError:
+                tweet_texts[tweet_json['user']['id_str']] = [current_tweet_text]
+        return tweet_texts
+
+    @staticmethod
+    def get_tweet_text(tweet_json):
+        tweet_text = ""
+        # get tweet text
+        try:
+            tweet_text = tweet_json['retweeted_status']['full_text']
+        except Exception:
+            tweet_text = tweet_json['full_text']
+        finally:
+            return tweet_text

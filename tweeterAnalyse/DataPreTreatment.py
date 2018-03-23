@@ -4,62 +4,58 @@ from tweeterAnalyse.TextProcessing import TextProcessing
 
 class DataPreTreatment(object):
 
-    hashtag_dict = {}
-    urls_dict = {}
-    voc_df = pd.DataFrame()
+    voc_df = pd.DataFrame(columns=['userFromId', 'userToId'])
     tweet_texts = {}
 
     @staticmethod
     def build_hashtags_dict(tweet_json):
+        hashtag_dict = {}
         try:
             for hashtag in tweet_json['entities']['hashtags']:
                 try:
-                    DataPreTreatment.hashtag_dict[hashtag['text']].append(tweet_json['user']['id_str'])
+                    hashtag_dict[hashtag['text']].append(tweet_json['user']['id_str'])
                 except KeyError:
-                    DataPreTreatment.hashtag_dict[hashtag['text']] = [tweet_json['user']['id_str']]
-            print(DataPreTreatment.hashtag_dict)
+                    hashtag_dict[hashtag['text']] = [tweet_json['user']['id_str']]
+            # print(DataPreTreatment.hashtag_dict)
         except Exception as e:
             print("")
+        finally:
+            return hashtag_dict
 
     @staticmethod
     def build_urls_dict(tweet_json):
+        urls_dict = {}
         try:
             for url in tweet_json['entities']['urls']:
                 try:
-                    DataPreTreatment.urls_dict[url['url']].append(tweet_json['user']['id_str'])
+                    urls_dict[url['url']].append(tweet_json['user']['id_str'])
                 except KeyError:
-                    DataPreTreatment.urls_dict[url['url']] = [tweet_json['user']['id_str']]
-            print(DataPreTreatment.urls_dict)
+                    urls_dict[url['url']] = [tweet_json['user']['id_str']]
+            # print(DataPreTreatment.urls_dict)
         except Exception as e:
             print("")
+        finally:
+            return urls_dict
 
     @staticmethod
-    def build_voc_dict(tweet_json):
+    def build_voc_dict(tweet_json, tweet_texts):
+        frames = []
+        df_voc = pd.DataFrame(columns=['userFromId', 'userToId'])
+        current_tweet_text = TextProcessing.get_tweet_text(tweet_json)
         try:
-            # get tweet text
-            try:
-                tweet_text = tweet_json['retweeted_status']['full_text']
-            except Exception:
-                tweet_text = tweet_json['full_text']
-
-            # check if one text was already saved, otherwise you have nothing to compare
-            if(len(DataPreTreatment.tweet_texts) == 0):
-                DataPreTreatment.tweet_texts[tweet_json['user']['id_str']] = [tweet_text]
-            else:
-                try:
-                    DataPreTreatment.tweet_texts[tweet_json['user']['id_str']].append(tweet_text)
-                except KeyError:
-                    DataPreTreatment.tweet_texts[tweet_json['user']['id_str']] = [tweet_text]
-
-                tp = TextProcessing()
-                for user_id, texts in DataPreTreatment.tweet_texts.items():
-                    for text in texts:
-                        similarity = tp.get_similarity_between_two_tweets(tweet_text, text)
-                        if(similarity > 0.6):
-                            DataPreTreatment.voc_df['userFromId'] = pd.Series([tweet_json['user']['id_str']])
-                            DataPreTreatment.voc_df['userToId'] = pd.Series([user_id])
-
-            print(DataPreTreatment.voc_dict)
+            tp = TextProcessing()
+            for user_id, texts in tweet_texts.items():
+                for text in texts:
+                    df_tmp = pd.DataFrame(columns=['userFromId', 'userToId'])
+                    if not user_id == tweet_json['user']['id_str']:
+                        if(tp.get_similarity_between_two_tweets(current_tweet_text, text) > 0.7):
+                            df_tmp['userFromId'] = pd.Series([tweet_json['user']['id_str']])
+                            df_tmp['userToId'] = pd.Series([user_id])
+                            frames.append(df_tmp)
+            df_voc = pd.concat(frames)
+            # print(DataPreTreatment.frames)
         except Exception as e:
             print("")
+        finally:
+            return df_voc
 

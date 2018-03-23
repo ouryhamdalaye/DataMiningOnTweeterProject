@@ -5,20 +5,17 @@ from tweeterAnalyse.DataCapture import DataCapture
 from tweeterAnalyse.DataPreTreatment import DataPreTreatment
 from tweeterAnalyse.DataDirectLinkHelper import DataDirectLinkHelper
 from tweeterAnalyse.DataIndirectLinkHelper import DataIndirectLinkHelper
+from tweeterAnalyse.TextProcessing import TextProcessing
 
 import json as json
 import pandas as pd
-
-
-# auth = Authentication()
-# tweeter_capture = TweetCapture()
-# tweeter_pre_treatment = DataPreTreatment()
-redis_handler = RedisHandler()
+import sys
 
 # authenticate to tweeter
 api = Authentication.auth(consumer_key=CONSUMER_KEY, consumer_secret=CONSUMER_SECRET, access_token=ACCESS_TOKEN,
                 access_token_secret=ACCESS_TOKEN_SECRET)
 
+redis_handler = RedisHandler()
 ans = True
 redis_tweet_tag = ""
 query = 'espion'
@@ -26,6 +23,7 @@ while ans:
     print("""
     1.Look for a subject (Default : "espion")
     2.Analyse subject
+    3.Visualize subject
     q.Exit/Quit
     """)
     ans = input("What would you like to do? ")
@@ -33,9 +31,10 @@ while ans:
     if ans == "1":
         print("\nLook for a subject ")
         # get tweets
-        max_tweets = 50
+        max_tweets = 4000
         query_bis = input("Type a subject : (Press Enter for Default) ")
         if query_bis == "":
+            print("Looking for default subject : " + query)
             query_bis = query
         else:
             query = query_bis
@@ -48,7 +47,7 @@ while ans:
         redis_handler.save_tweets_to_redis(tweets=json_tweets, redis_tweet_tag=redis_tweet_tag)
     elif ans == "2":
         if redis_tweet_tag == "":
-            print("Default subject : espion")
+            print("Default subject : " + query )
             redis_tweet_tag = "tweets_query_" + query
         print("\nAnalyse of subject " + query)
         try:
@@ -56,67 +55,104 @@ while ans:
             if not tweets:
                 print("\nUnable to load payload. Please Look for a subject again.")
             else:
-                # print(tweets)
-                df_direct_links = pd.DataFrame()
-                df_indirect_links = pd.DataFrame()
+                hashtags_dict = {}
+                urls_dict = {}
+                tweet_texts = {}
+
+                voc_frames = []
                 direct_links_frames = []
-                indirect_links_frames = []
+
+                df_direct_links = pd.DataFrame()
+                df_indirect_links = pd.DataFrame(columns=['userFromId', 'userToId'])
+
+                count = 0
+                nbTweets = len(tweets)
+
+                # pre-treatment
+                print("pre-treatment")
                 for tweet in tweets:
-                    # DataPreTreatment.build_hashtags_dict(tweet)
-                    # DataPreTreatment.build_urls_dict(tweet)
-                    DataPreTreatment.build_voc_dict(tweet)
-                    # direct_links_frames.append(DataDirectLinkHelper.get_direct_links(tweet))
-                    # indirect_links_frames.append(DataIndirectLinkHelper.get_indirect_links(tweet))
+                    tweet_texts.update(TextProcessing.get_tweet_textes_with_users(tweet_texts, tweet))
+                    hashtags_dict.update(DataPreTreatment.build_hashtags_dict(tweet))
+                    urls_dict.update(DataPreTreatment.build_urls_dict(tweet))
+                    DataPreTreatment.build_voc_dict(tweet, tweet_texts)
+                    voc_frames.append(DataPreTreatment.build_voc_dict(tweet, tweet_texts))
 
-                """
-                    tweet_text = ""
-                    try:
-                        tmp = i['retweeted_status']
-                        tweet_text = i['retweeted_status']['full_text']
-                        print("b " + tweet_text)
-                    except Exception:
-                        tweet_text = i['full_text']
-                        print("a " + tweet_text)
+                    # direct links can directly be built in this loop
+                    count += 1
+                    per = round(count * 100.0 / nbTweets, 1)
+                    sys.stdout.write("\rbuilding direct links. %s%% completed" % per)
+                    sys.stdout.flush()
+                    direct_links_frames.append(DataDirectLinkHelper.get_direct_links(tweet))
 
-                    print("\n\nData Pre-Treatment --\n")
+                print("\npre-treatment done")
+                print("\n---------------\n")
 
-                    print("\n--- Init nltk ---\n")
-                    DataPreTreatment.init()
-
-                    print("\n----------\n")
-
-                    print("\nsentence tokenize")
-                    tweet_sentence_tokenized = DataPreTreatment.tokenize_tweet_by_sentences(tweet_text)
-                    print(tweet_sentence_tokenized)
-                    print("\n")
-
-                    print("\nword tokenize")
-                    tweet_word_tokenized = DataPreTreatment.tokenize_tweet_by_words(tweet_text)
-                    print(tweet_word_tokenized)
-                    print("\n")
-
-                    print("\nremove stopwords")
-                    tweet_without_stop_words = DataPreTreatment.remove_stop_words(tweet_word_tokenized)
-                    print(tweet_without_stop_words)
-                    print("\n")
-
-                    print("\nstem")
-                    tweet_stemmed = DataPreTreatment.stem_words(tweet_without_stop_words)
-                    print(tweet_stemmed)
-                    print("\n")
-
-                    print("\nspeech tag")
-                    speech_tag = DataPreTreatment.speech_tag(tweet_stemmed)
-                    print(speech_tag)
-                    print("\n")
-                    """
-                print("direct links : ")
+                # create links
+                print("building links")
                 df_direct_links = pd.concat(direct_links_frames)
                 df_direct_links = df_direct_links.drop_duplicates()
+                print("direct links are : ")
                 print(df_direct_links)
+
+                df_indirect_links = pd.concat(DataIndirectLinkHelper.get_indirect_links(hashtags=hashtags_dict, urls=urls_dict, vocabularies=voc_frames))
+                if df_indirect_links.empty:
+                    df_indirect_links = pd.DataFrame(columns=['userFromId', 'userToId'])
+                else:
+                    df_indirect_links = df_indirect_links.drop_duplicates()
+                print("indirect links are : ")
+                print(df_indirect_links)
+
+                print("merging...")
+                df_all_links = pd.DataFrame(columns=['userFromId', 'userToId'])
+                bulid_direct_links = False
+                bulid_indirect_links = False
+                if not df_direct_links.empty:
+                    df_all_links = pd.concat([df_direct_links])
+                if not df_indirect_links.empty:
+                    df_all_links = pd.concat([df_all_links, df_indirect_links])
+
+                # save to reuse treatment
+                print("saving...")
+                redis_df_tag_direct_links = query + "_df_direct_links"
+                redis_handler.save_dataframe_to_redis(dataframe=df_direct_links, redis_df_tag=redis_df_tag_direct_links)
+                redis_df_tag_indirect_links = query + "_df_indirect_links"
+                redis_handler.save_dataframe_to_redis(dataframe=df_indirect_links, redis_df_tag=redis_df_tag_indirect_links)
+                redis_df_tag_all_links = query + "_df_all_links"
+                redis_handler.save_dataframe_to_redis(dataframe = df_all_links, redis_df_tag = redis_df_tag_all_links)
+
+                print("complete. Got to 3 to visualize")
         except Exception as e:
             print("Error : " + str(e))
             ans = False
+    elif ans == "3":
+        if redis_tweet_tag == "":
+            print("Default subject : " + query )
+        print("\nVisualization of subject " + query)
+
+        redis_df_tag_direct_links = query + "_df_direct_links"
+        redis_df_tag_indirect_links = query + "_df_indirect_links"
+        redis_df_tag_all_links = query + "_df_all_links"
+
+        df_redis_all_links = redis_handler.retrieve_dataframe(redis_df_tag_all_links)
+        if df_redis_all_links.empty :
+            print("unable to retrieve all links. it is empty")
+        else:
+            print(str(len(df_redis_all_links)) + " global links")
+
+        df_redis_direct_links = redis_handler.retrieve_dataframe(redis_df_tag_direct_links)
+        if df_redis_direct_links.empty:
+            print("unable to retrieve direct links. it is empty")
+        else:
+            print(str(len(df_redis_direct_links)) + " direct links")
+
+        df_redis_indirect_links = redis_handler.retrieve_dataframe(redis_df_tag_indirect_links)
+        if df_redis_indirect_links.empty:
+            print("unable to retrieve indirect links. it is empty")
+        else:
+            print(str(len(df_redis_indirect_links)) + " indirect links")
+
+
+
     elif ans == "q":
         redis_tweet_tag = ""
         print("\nGoodbye!")
