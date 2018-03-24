@@ -7,6 +7,7 @@ from tweeterAnalyse.DataDirectLinkHelper import DataDirectLinkHelper
 from tweeterAnalyse.DataIndirectLinkHelper import DataIndirectLinkHelper
 from tweeterAnalyse.TextProcessing import TextProcessing
 from tweeterAnalyse.GraphDrawer import GraphDrawer
+import matplotlib.pyplot as plt
 
 import json as json
 import pandas as pd
@@ -19,7 +20,7 @@ api = Authentication.auth(consumer_key=CONSUMER_KEY, consumer_secret=CONSUMER_SE
 redis_handler = RedisHandler()
 ans = True
 redis_tweet_tag = ""
-query = 'espion'
+query = 'sarkozy'
 while ans:
     print("""
     1.Look for a subject (Default : "espion")
@@ -75,18 +76,23 @@ while ans:
                     tweet_texts.update(TextProcessing.get_tweet_textes_with_users(tweet_texts, tweet))
                     hashtags_dict.update(DataPreTreatment.build_hashtags_dict(tweet))
                     urls_dict.update(DataPreTreatment.build_urls_dict(tweet))
-                    DataPreTreatment.build_voc_dict(tweet, tweet_texts)
-                    voc_frames.append(DataPreTreatment.build_voc_dict(tweet, tweet_texts))
 
-                    # direct links can directly be built in this loop
                     count += 1
                     per = round(count * 100.0 / nbTweets, 1)
                     sys.stdout.write("\rbuilding direct links. %s%% completed" % per)
                     sys.stdout.flush()
+                    # direct links can directly be built in this loop
                     direct_links_frames.append(DataDirectLinkHelper.get_direct_links(tweet))
 
                 print("\npre-treatment done")
                 print("\n---------------\n")
+
+                exit(0)
+
+                DataPreTreatment.build_voc_dict(tweet, tweet_texts)
+                voc_frames.append(DataPreTreatment.build_voc_dict(tweet, tweet_texts))
+
+
 
                 # create links
                 print("building links")
@@ -95,7 +101,10 @@ while ans:
                 print("direct links are : ")
                 print(df_direct_links)
 
-                df_indirect_links = pd.concat(DataIndirectLinkHelper.get_indirect_links(hashtags=hashtags_dict, urls=urls_dict, vocabularies=voc_frames))
+                frames = DataIndirectLinkHelper.get_indirect_links(hashtags=hashtags_dict, urls=urls_dict, vocabularies=voc_frames)
+                if len(frames) > 0 :
+                    df_indirect_links = pd.concat(frames)
+
                 if df_indirect_links.empty:
                     df_indirect_links = pd.DataFrame(columns=['userFromId', 'userToId'])
                 else:
@@ -152,11 +161,14 @@ while ans:
         else:
             print(str(len(df_redis_indirect_links)) + " indirect links")
 
-        graph_drawer = GraphDrawer("digraph")
+        graph_drawer = GraphDrawer("graph")
         graph_drawer.add_edges(df_redis_all_links)
         graph_drawer.add_nodes(df_redis_all_links)
         graph_drawer.draw_graph()
 
+        print(graph_drawer.get_clique())
+        print(graph_drawer.get_clusters())
+        print(graph_drawer.get_triangles())
         trace1 = graph_drawer.scatter_nodes()
         trace2 = graph_drawer.scatter_edges()
 

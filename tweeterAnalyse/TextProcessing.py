@@ -1,4 +1,5 @@
 from tweeterAnalyse import *
+import nltk
 from nltk.corpus import stopwords, state_union
 from nltk.tokenize import word_tokenize, PunktSentenceTokenizer
 from nltk.stem.porter import PorterStemmer

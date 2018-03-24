@@ -9,7 +9,8 @@ from config.private_config_data import *
 class GraphDrawer(object):
 
     def __init__(self, type_graph):
-        if type_graph == "digraph" :
+        self.type_graph = type_graph
+        if self.type_graph == "digraph" :
             self.G = nx.DiGraph()
         else:
             self.G = nx.Graph()
@@ -33,8 +34,12 @@ class GraphDrawer(object):
         temp = zip(df['userFromId'], df['userToId'])
         self.G.add_edges_from(temp)
 
-        self.inScore = self.G.in_degree()
-        self.outScore = self.G.out_degree()
+        if self.type_graph == 'digraph' :
+            self.inScore = self.G.in_degree()
+            self.outScore = self.G.out_degree()
+        else :
+            self.inScore = self.G.degree()
+            self.outScore = self.G.degree()
         self.centralScore = nx.betweenness_centrality(self.G)
         self.define_pos()
 
@@ -114,6 +119,15 @@ class GraphDrawer(object):
             if line_color is not None:  # when it is None a default Plotly color is used
                 trace['line']['color'] = line_color
         return trace
+
+    def get_clique(self):
+        return nx.find_cliques_recursive(self.G)
+
+    def get_clusters(self):
+        return nx.average_clustering(self.G)
+
+    def get_triangles(self):
+        return nx.triangles(self.G)
 
     def make_annotations(self, text, font_size=14, font_color='rgb(25,25,25)'):
         L = len(self.pos)

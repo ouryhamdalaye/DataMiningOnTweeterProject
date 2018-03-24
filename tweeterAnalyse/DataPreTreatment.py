@@ -1,5 +1,6 @@
 from tweeterAnalyse import *
 from tweeterAnalyse.TextProcessing import TextProcessing
+from tweeterAnalyse.Url import Url
 
 
 class DataPreTreatment(object):
@@ -27,10 +28,11 @@ class DataPreTreatment(object):
         urls_dict = {}
         try:
             for url in tweet_json['entities']['urls']:
+
                 try:
-                    urls_dict[url['url']].append(tweet_json['user']['id_str'])
+                    urls_dict[url['expanded_url']].append(tweet_json['user']['id_str'])
                 except KeyError:
-                    urls_dict[url['url']] = [tweet_json['user']['id_str']]
+                    urls_dict[url['expanded_url']] = [tweet_json['user']['id_str']]
             # print(DataPreTreatment.urls_dict)
         except Exception as e:
             print("")
